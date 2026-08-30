@@ -30,3 +30,8 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# tgo binary
+/tgo
+/cmd/tgo/tgo
+/tgo.li
