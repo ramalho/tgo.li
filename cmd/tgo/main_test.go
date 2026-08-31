@@ -1,20 +1,17 @@
 package main
 
 import (
-	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"rsc.io/qr"
 )
 
 // tgoWarn runs the command against file, returning stdout and stderr.
 func tgoWarn(t *testing.T, file, url string) (string, string) {
 	t.Helper()
 	var out, warn strings.Builder
-	if err := run(&out, &warn, file, url, false); err != nil {
+	if err := run(&out, &warn, file, url); err != nil {
 		t.Fatalf("run(%q, %q): %s", file, url, err)
 	}
 	return out.String(), warn.String()
@@ -43,7 +40,7 @@ func TestRunCreatesFile(t *testing.T) {
 	file := filepath.Join(t.TempDir(), defaultFile)
 	const url = "https://go.dev/doc/effective_go"
 
-	if got, want := tgo(t, file, url), "new: https://tgo.li/22\n"; got != want {
+	if got, want := tgo(t, file, url), "https://tgo.li/22  # new\n"; got != want {
 		t.Errorf("output = %q, want %q", got, want)
 	}
 	want := header + "RedirectTemp /22\t" + url + "\n"
@@ -59,7 +56,7 @@ func TestRunExistingURL(t *testing.T) {
 	tgo(t, file, url)
 	before := read(t, file)
 
-	if got, want := tgo(t, file, url), "existing: https://tgo.li/22\n"; got != want {
+	if got, want := tgo(t, file, url), "https://tgo.li/22  # existing\n"; got != want {
 		t.Errorf("output = %q, want %q", got, want)
 	}
 	if after := read(t, file); after != before {
@@ -73,7 +70,7 @@ func TestRunSecondURL(t *testing.T) {
 	const second = "https://pkg.go.dev/net/url"
 
 	tgo(t, file, first)
-	if got, want := tgo(t, file, second), "new: https://tgo.li/23\n"; got != want {
+	if got, want := tgo(t, file, second), "https://tgo.li/23  # new\n"; got != want {
 		t.Errorf("output = %q, want %q", got, want)
 	}
 	want := header +
@@ -91,10 +88,10 @@ func TestRunSkipsUsedPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got, want := tgo(t, file, "https://example.com/c"), "new: https://tgo.li/24\n"; got != want {
+	if got, want := tgo(t, file, "https://example.com/c"), "https://tgo.li/24  # new\n"; got != want {
 		t.Errorf("output = %q, want %q", got, want)
 	}
-	if got, want := tgo(t, file, "https://example.com/a"), "existing: https://tgo.li/22\n"; got != want {
+	if got, want := tgo(t, file, "https://example.com/a"), "https://tgo.li/22  # existing\n"; got != want {
 		t.Errorf("output = %q, want %q", got, want)
 	}
 	if got := read(t, file); !strings.HasPrefix(got, seed) {
@@ -105,7 +102,7 @@ func TestRunSkipsUsedPaths(t *testing.T) {
 func TestRunStoresNormalizedURL(t *testing.T) {
 	file := filepath.Join(t.TempDir(), defaultFile)
 
-	if got, want := tgo(t, file, "HTTPS://Dask.ORG"), "new: https://tgo.li/22\n"; got != want {
+	if got, want := tgo(t, file, "HTTPS://Dask.ORG"), "https://tgo.li/22  # new\n"; got != want {
 		t.Errorf("output = %q, want %q", got, want)
 	}
 	want := header + "RedirectTemp /22\thttps://dask.org/\n"
@@ -129,7 +126,7 @@ func TestRunMatchesNormalizedVariants(t *testing.T) {
 
 	for _, v := range variants {
 		t.Run(v, func(t *testing.T) {
-			if got, want := tgo(t, file, v), "existing: https://tgo.li/22\n"; got != want {
+			if got, want := tgo(t, file, v), "https://tgo.li/22  # existing\n"; got != want {
 				t.Errorf("output = %q, want %q", got, want)
 			}
 		})
@@ -154,7 +151,7 @@ func TestRunKeepsDistinctURLsDistinct(t *testing.T) {
 	seen := map[string]bool{}
 	for _, u := range distinct {
 		out, _ := tgoWarn(t, file, u) // the slash pair warns; that is its own test
-		if !strings.HasPrefix(out, "new: ") {
+		if !strings.HasSuffix(out, "  # new\n") {
 			t.Errorf("%s: output = %q, want a new short URL", u, out)
 		}
 		if seen[out] {
@@ -196,7 +193,7 @@ func TestRunWarnsOnNearMiss(t *testing.T) {
 			tgo(t, file, c.first)
 
 			out, warn := tgoWarn(t, file, c.second)
-			if want := "new: https://tgo.li/23\n"; out != want {
+			if want := "https://tgo.li/23  # new\n"; out != want {
 				t.Errorf("stdout = %q, want %q", out, want)
 			}
 			want := "note: /22 already redirects to " + normalized(t, c.first) +
@@ -233,7 +230,7 @@ func TestRunWarnsOnEveryAxis(t *testing.T) {
 	}
 
 	out, warn := tgoWarn(t, file, "https://example.com/a")
-	if want := "new: https://tgo.li/25\n"; out != want {
+	if want := "https://tgo.li/25  # new\n"; out != want {
 		t.Errorf("stdout = %q, want %q", out, want)
 	}
 	want := "note: /22 already redirects to https://example.com/a/\n\t(differs only by a trailing slash)\n" +
@@ -296,7 +293,7 @@ func TestRunErrors(t *testing.T) {
 			dir := t.TempDir()
 			file := filepath.Join(dir, defaultFile)
 			var out, warn strings.Builder
-			if err := run(&out, &warn, file, c.url, false); err == nil {
+			if err := run(&out, &warn, file, c.url); err == nil {
 				t.Errorf("run(%q) = nil, want an error", c.url)
 			}
 			if out.Len() != 0 || warn.Len() != 0 {
@@ -306,73 +303,5 @@ func TestRunErrors(t *testing.T) {
 				t.Errorf("%s should not have been created", file)
 			}
 		})
-	}
-}
-
-// tgoQR is tgo with the -q flag set.
-func tgoQR(t *testing.T, file, url string) string {
-	t.Helper()
-	var out, warn strings.Builder
-	if err := run(&out, &warn, file, url, true); err != nil {
-		t.Fatalf("run(%q, %q, qr): %s", file, url, err)
-	}
-	if warn.String() != "" {
-		t.Errorf("unexpected warning for %s: %q", url, warn.String())
-	}
-	return out.String()
-}
-
-// checkQR fails unless name holds the PNG of the QR code for path.
-func checkQR(t *testing.T, name, path string) {
-	t.Helper()
-	code, err := qr.Encode(baseURL+path, qr.M)
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := read(t, name)
-	if got != string(code.PNG()) {
-		t.Errorf("%s does not hold the QR code for %s%s", name, baseURL, path)
-	}
-	if _, err := png.Decode(strings.NewReader(got)); err != nil {
-		t.Errorf("%s is not a valid PNG: %s", name, err)
-	}
-}
-
-func TestRunWritesQRCode(t *testing.T) {
-	dir := t.TempDir()
-	file := filepath.Join(dir, defaultFile)
-	name := filepath.Join(dir, "22.png")
-
-	want := "new: https://tgo.li/22\nqrcode: " + name + "\n"
-	if got := tgoQR(t, file, "https://go.dev/doc/effective_go"); got != want {
-		t.Errorf("output = %q, want %q", got, want)
-	}
-	checkQR(t, name, "22")
-}
-
-// A URL already in the file still gets its QR code, so that -q can be used
-// to (re)create a PNG for a short URL minted earlier.
-func TestRunWritesQRCodeForExistingURL(t *testing.T) {
-	dir := t.TempDir()
-	file := filepath.Join(dir, defaultFile)
-	const url = "https://go.dev/doc/effective_go"
-	name := filepath.Join(dir, "22.png")
-
-	tgo(t, file, url)
-	want := "existing: https://tgo.li/22\nqrcode: " + name + "\n"
-	if got := tgoQR(t, file, url); got != want {
-		t.Errorf("output = %q, want %q", got, want)
-	}
-	checkQR(t, name, "22")
-}
-
-func TestRunWithoutQRCode(t *testing.T) {
-	dir := t.TempDir()
-	file := filepath.Join(dir, defaultFile)
-
-	tgo(t, file, "https://go.dev/doc/effective_go")
-	name := filepath.Join(dir, "22.png")
-	if _, err := os.Stat(name); !os.IsNotExist(err) {
-		t.Errorf("%s should not have been created", name)
 	}
 }
