@@ -1,17 +1,20 @@
 package main
 
 import (
+	"image/png"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"rsc.io/qr"
 )
 
 // tgoWarn runs the command against file, returning stdout and stderr.
 func tgoWarn(t *testing.T, file, url string) (string, string) {
 	t.Helper()
 	var out, warn strings.Builder
-	if err := run(&out, &warn, file, url); err != nil {
+	if err := run(&out, &warn, file, url, false); err != nil {
 		t.Fatalf("run(%q, %q): %s", file, url, err)
 	}
 	return out.String(), warn.String()
@@ -197,7 +200,7 @@ func TestRunWarnsOnNearMiss(t *testing.T) {
 				t.Errorf("stdout = %q, want %q", out, want)
 			}
 			want := "note: /22 already redirects to " + normalized(t, c.first) +
-				" (differs only by " + c.reason + ")\n"
+				"\n\t(differs only by " + c.reason + ")\n"
 			if warn != want {
 				t.Errorf("stderr = %q, want %q", warn, want)
 			}
@@ -233,9 +236,9 @@ func TestRunWarnsOnEveryAxis(t *testing.T) {
 	if want := "new: https://tgo.li/25\n"; out != want {
 		t.Errorf("stdout = %q, want %q", out, want)
 	}
-	want := "note: /22 already redirects to https://example.com/a/ (differs only by a trailing slash)\n" +
-		"note: /23 already redirects to https://www.example.com/a (differs only by the www. prefix)\n" +
-		"note: /24 already redirects to http://example.com/a (differs only by http vs https)\n"
+	want := "note: /22 already redirects to https://example.com/a/\n\t(differs only by a trailing slash)\n" +
+		"note: /23 already redirects to https://www.example.com/a\n\t(differs only by the www. prefix)\n" +
+		"note: /24 already redirects to http://example.com/a\n\t(differs only by http vs https)\n"
 	if warn != want {
 		t.Errorf("stderr = %q, want %q", warn, want)
 	}
@@ -249,7 +252,7 @@ func TestRunWarnsWithStoredURL(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, warn := tgoWarn(t, file, "https://example.com/a")
-	want := "note: /22 already redirects to HTTPS://Example.COM/a/ (differs only by a trailing slash)\n"
+	want := "note: /22 already redirects to HTTPS://Example.COM/a/\n\t(differs only by a trailing slash)\n"
 	if warn != want {
 		t.Errorf("stderr = %q, want %q", warn, want)
 	}
@@ -293,7 +296,7 @@ func TestRunErrors(t *testing.T) {
 			dir := t.TempDir()
 			file := filepath.Join(dir, defaultFile)
 			var out, warn strings.Builder
-			if err := run(&out, &warn, file, c.url); err == nil {
+			if err := run(&out, &warn, file, c.url, false); err == nil {
 				t.Errorf("run(%q) = nil, want an error", c.url)
 			}
 			if out.Len() != 0 || warn.Len() != 0 {
@@ -303,5 +306,73 @@ func TestRunErrors(t *testing.T) {
 				t.Errorf("%s should not have been created", file)
 			}
 		})
+	}
+}
+
+// tgoQR is tgo with the -q flag set.
+func tgoQR(t *testing.T, file, url string) string {
+	t.Helper()
+	var out, warn strings.Builder
+	if err := run(&out, &warn, file, url, true); err != nil {
+		t.Fatalf("run(%q, %q, qr): %s", file, url, err)
+	}
+	if warn.String() != "" {
+		t.Errorf("unexpected warning for %s: %q", url, warn.String())
+	}
+	return out.String()
+}
+
+// checkQR fails unless name holds the PNG of the QR code for path.
+func checkQR(t *testing.T, name, path string) {
+	t.Helper()
+	code, err := qr.Encode(baseURL+path, qr.M)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := read(t, name)
+	if got != string(code.PNG()) {
+		t.Errorf("%s does not hold the QR code for %s%s", name, baseURL, path)
+	}
+	if _, err := png.Decode(strings.NewReader(got)); err != nil {
+		t.Errorf("%s is not a valid PNG: %s", name, err)
+	}
+}
+
+func TestRunWritesQRCode(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, defaultFile)
+	name := filepath.Join(dir, "22.png")
+
+	want := "new: https://tgo.li/22\nqrcode: " + name + "\n"
+	if got := tgoQR(t, file, "https://go.dev/doc/effective_go"); got != want {
+		t.Errorf("output = %q, want %q", got, want)
+	}
+	checkQR(t, name, "22")
+}
+
+// A URL already in the file still gets its QR code, so that -q can be used
+// to (re)create a PNG for a short URL minted earlier.
+func TestRunWritesQRCodeForExistingURL(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, defaultFile)
+	const url = "https://go.dev/doc/effective_go"
+	name := filepath.Join(dir, "22.png")
+
+	tgo(t, file, url)
+	want := "existing: https://tgo.li/22\nqrcode: " + name + "\n"
+	if got := tgoQR(t, file, url); got != want {
+		t.Errorf("output = %q, want %q", got, want)
+	}
+	checkQR(t, name, "22")
+}
+
+func TestRunWithoutQRCode(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, defaultFile)
+
+	tgo(t, file, "https://go.dev/doc/effective_go")
+	name := filepath.Join(dir, "22.png")
+	if _, err := os.Stat(name); !os.IsNotExist(err) {
+		t.Errorf("%s should not have been created", name)
 	}
 }

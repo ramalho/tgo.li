@@ -35,3 +35,6 @@ go.work.sum
 /tgo
 /cmd/tgo/tgo
 /tgo.li
+
+# qrcodes
+??.png
