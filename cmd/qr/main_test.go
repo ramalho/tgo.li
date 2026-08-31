@@ -37,6 +37,7 @@ func wantBounds(t *testing.T, url string) image.Rectangle {
 
 func TestRunShortPath(t *testing.T) {
 	t.Chdir(t.TempDir())
+	writeHtaccess(t, "RedirectTemp /23\thttps://example.com/\n")
 	var out strings.Builder
 
 	if err := run(&out, "23"); err != nil {
@@ -47,6 +48,41 @@ func TestRunShortPath(t *testing.T) {
 	}
 	if got, want := decode(t, "23.png"), wantBounds(t, "https://tgo.li/23"); got != want {
 		t.Errorf("bounds = %v, want %v", got, want)
+	}
+}
+
+// writeHtaccess creates htaccessFile in the current directory with content.
+func writeHtaccess(t *testing.T, content string) {
+	t.Helper()
+	if err := os.WriteFile(htaccessFile, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// A short path with no RedirectTemp directive is refused, before any PNG
+// is written, whether or not htaccessFile even exists.
+func TestRunShortPathNotDefined(t *testing.T) {
+	t.Chdir(t.TempDir())
+	writeHtaccess(t, "RedirectTemp /23\thttps://example.com/\n")
+
+	if err := run(&strings.Builder{}, "99"); err == nil {
+		t.Fatal("run(99) = nil, want error")
+	}
+	if _, err := os.Stat("99.png"); !os.IsNotExist(err) {
+		t.Errorf("99.png = %v, want it not to exist", err)
+	}
+}
+
+// A short path is refused the same way when htaccessFile does not exist at
+// all: no path can be defined without it.
+func TestRunShortPathNoHtaccess(t *testing.T) {
+	t.Chdir(t.TempDir())
+
+	if err := run(&strings.Builder{}, "23"); err == nil {
+		t.Fatal("run(23) = nil, want error")
+	}
+	if _, err := os.Stat("23.png"); !os.IsNotExist(err) {
+		t.Errorf("23.png = %v, want it not to exist", err)
 	}
 }
 
