@@ -1,2 +1,10 @@
 # TGO.LI redirects — managed by the tgo command
 RedirectTemp /22	https://speakerdeck.com/ramalho/conjuntos-em-go-1-dot-28
+RedirectTemp /23	https://dl.acm.org/doi/10.1145/1283920.1283933
+RedirectTemp /24	https://github.com/golang/go/issues/80590
+RedirectTemp /25	http://weblogs.java.net/blog/arnold/archive/2005/06/generics_consid_1.html
+RedirectTemp /26	https://www.fbounded.com/blog/f-bounded-polymorphism/
+RedirectTemp /27	https://www.fluentpython.com/extra/internals-of-sets-and-dicts/
+RedirectTemp /28	https://github.com/ramalho/visible-set-demo
+RedirectTemp /29	https://pt.wikipedia.org/wiki/Aaron_Swartz
+RedirectTemp /2a	https://speakerdeck.com/ramalho/
