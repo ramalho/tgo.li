@@ -16,3 +16,5 @@ RedirectTemp /2f	https://qwen.ai/blog?id=qwen3.8-flash-next
 RedirectTemp /2g	https://www.tedinski.com/book/
 RedirectTemp /2h	https://go-proverbs.github.io/
 RedirectTemp /2j	https://home.nori.build/
+RedirectTemp /2k	https://internals-for-interns.com/posts/inside-go-synctest/
+RedirectTemp /2m	https://github.com/ramalho/sets-in-go/tree/main/unigo
