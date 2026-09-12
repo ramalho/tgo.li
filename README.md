@@ -2,8 +2,12 @@
 
 Encurtador de URLs feito em casa.
 
-Não há servidor: os redirecionamentos ficam num arquivo `.htaccess` publicado
-na raiz do site tgo.li, e dois comandos cuidam dele.
+Não há servidor especializado:
+os redirecionamentos estão num arquivo `.htaccess` publicado
+na raiz do site tgo.li, e o servidor Apache faz o resto.
+
+Os programas em Go neste repositório servem para gerenciar
+este `.htaccess`, gerar URLs curtas, e QR-codes.
 
 ## Instalação
 
