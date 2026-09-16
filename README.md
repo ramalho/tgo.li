@@ -9,7 +9,7 @@ na raiz do site tgo.li, e o servidor Apache faz o resto.
 Os programas em Go neste repositório servem para gerenciar
 este `.htaccess`, gerar URLs curtas, e QR-codes.
 
-## Os três comandos
+## Três comandos
 
 - **[`tgo`](cmd/tgo/README.md)** — cria o caminho curto. Recebe uma URL longa,
   procura por ela no `.htaccess` e, se não estiver lá, acrescenta uma
